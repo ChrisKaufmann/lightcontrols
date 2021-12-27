@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+var ws = new WebSocket("ws://" + location.host + "/websocket");
+var states = {
+  1:0,
+  2:0,
+  3:0,
+  4:0,
+  5:0,
+  6:0,
+  7:0,
+  8:0
+};
+$(window).keydown(function (e) {
+  switch(e.which) {
+  case 49:
+  press(1);
+  break;
+  case 50:
+  press(2);
+  break;
+  case 51:
+  press(3);
+  break;
+  case 52:
+  press(4);
+  break;
+  case 53:
+  press(5);
+  break;
+  case 54:
+  press(6);
+  break;
+  case 55:
+  press(7);
+  break;
+  case 56: 
+  press(8);
+  break;
+  }
+});
+function press(id) {
+  newstate = 0;
+  if(states[id] == 0) {
+  newstate = 1;
+  } 
+  ws.send(JSON.stringify({"action": "setid", "id":id, "state": newstate}));
+}
+</script>
+</head>
+<body>
+<table border=1 width=100%>
+<tr height=50>
+<td align="center" width="12.5%">1</td>
+<td align="center" width="12.5%">2</td>
+<td align="center" width="12.5%">3</td>
+<td align="center" width="12.5%">4</td>
+<td align="center" width="12.5%">5</td>
+<td align="center" width="12.5%">6</td>
+<td align="center" width="12.5%">7</td>
+<td align="center" width="12.5%">8</td>
+</tr>
+<tr height=5>
+<td id=1></td>
+<td id=2></td>
+<td id=3></td>
+<td id=4></td>
+<td id=5></td>
+<td id=6></td>
+<td id=7></td>
+<td id=8></td>
+</tr>
+<tr>
+<td colspan=4>Routines</td>
+<td colspan=4>New Routine</td>
+</tr>
+<tr>
+<td colspan=4></td>
+<td colspan=4></td>
+</tr>
+</table>
+<script>
+  ws.onmessage = function(evt) {
+    var messageDict = JSON.parse(evt.data);
+    if( messageDict.action == "state") {
+      states[messageDict.id] = messageDict.state;
+      if(messageDict.state == "1") {
+        $("#"+messageDict.id).css('background-color','green');
+      } else if (messageDict.state == "0") {
+        $("#"+messageDict.id).css('background-color','red');
+      }
+    } else if (messageDict.action == "routine" ) {
+      
+    }
+    console.log(messageDict)
+    // messageDict attributes are accessable like messageDict.user, messageDict.id, etc
+  };
+  </script>
+</body>
+</html>
