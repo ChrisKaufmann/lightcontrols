@@ -14,6 +14,11 @@ var states = {
   7:0,
   8:0
 };
+
+// should end up with
+// 'name': '12345678', // example pattern
+var routines = {}
+
 $(window).keydown(function (e) {
   switch(e.which) {
   case 49:
@@ -49,19 +54,22 @@ function press(id) {
   } 
   ws.send(JSON.stringify({"action": "setid", "id":id, "state": newstate}));
 }
+function runRoutine(name) {
+  ws.send(JSON.stringify({"action": "routine", "routine":routines[name]}));
+}
 </script>
 </head>
 <body>
-<table border=1 width=100%>
+<table id='maintable' border=1 width=100%>
 <tr height=50>
-<td align="center" width="12.5%">1</td>
-<td align="center" width="12.5%">2</td>
-<td align="center" width="12.5%">3</td>
-<td align="center" width="12.5%">4</td>
-<td align="center" width="12.5%">5</td>
-<td align="center" width="12.5%">6</td>
-<td align="center" width="12.5%">7</td>
-<td align="center" width="12.5%">8</td>
+<td align="center" onclick="press(1)" width="12.5%">1</td>
+<td align="center" onclick="press(2)" width="12.5%">2</td>
+<td align="center" onclick="press(3)" width="12.5%">3</td>
+<td align="center" onclick="press(4)" width="12.5%">4</td>
+<td align="center" onclick="press(5)" width="12.5%">5</td>
+<td align="center" onclick="press(6)" width="12.5%">6</td>
+<td align="center" onclick="press(7)" width="12.5%">7</td>
+<td align="center" onclick="press(8)" width="12.5%">8</td>
 </tr>
 <tr height=5>
 <td id=1></td>
@@ -74,12 +82,7 @@ function press(id) {
 <td id=8></td>
 </tr>
 <tr>
-<td colspan=4>Routines</td>
-<td colspan=4>New Routine</td>
-</tr>
-<tr>
-<td colspan=4></td>
-<td colspan=4></td>
+<td colspan=8><div id='routines'></div></td>
 </tr>
 </table>
 <script>
@@ -93,6 +96,11 @@ function press(id) {
         $("#"+messageDict.id).css('background-color','red');
       }
     } else if (messageDict.action == "routine" ) {
+      //Add to list of routines
+      routines[messageDict.name]=messageDict.routine;
+      //Add to page
+      newbutton = "<input type='Button' value='" + messageDict.name+"' onclick='runRoutine(\""+messageDict.name+"\")'>";
+      $("#routines").append(newbutton);    
       
     }
     console.log(messageDict)
