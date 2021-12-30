@@ -5,6 +5,7 @@ import RPi.GPIO as GPIO
 import json
 import os
 import time
+import random
 
 GPIO.setmode(GPIO.BOARD)
 
@@ -35,17 +36,21 @@ pinmap = {
 for pin in pins:
    GPIO.setup(pin, GPIO.OUT)
 def loadRoutines():
+    print("Loading Routines")
     r = {}
     for filename in os.listdir(routinesPath):
+        if filename[0] == ".":
+            continue
         newline = ""
         with open(routinesPath+"/"+filename) as f:
             for line in f.readlines():
                 for c in line:
-                    if c.isdigit() == True or c == " " or c == "w" or c == "-":
+                    if c.isdigit() == True or c == " " or c == "w" or c == "-" or c == "r":
                         newline = newline+c
         if len(newline) < 1:
           continue
         r[filename.capitalize()] = newline
+    print("Loading Routines - finished")
     return r
 routines = loadRoutines()
 
@@ -56,6 +61,7 @@ class MainHandler(tornado.web.RequestHandler):
 class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     connections = set()
 
+    routines = routines # copy from the global
     def setState(self, id, state):
         state = int(state)
         id = int(id)
@@ -65,7 +71,6 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
             GPIO.output(pinmap[id], GPIO.LOW)
         pins[pinmap[id]][state] = GPIO.input(pin)
         message = {'action': 'state', 'id': id, 'state': state}
-        print(message)
         [client.write_message(message) for client in self.connections]
 
     def runRoutine(self,routine):
@@ -76,17 +81,19 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
             if t == "w":
                 time.sleep(.5)
                 continue
+            if t == "r":
+                t = random.randrange(-8,8)
             t = int(t)
             if t == 0:
                 for i in range(1,9):
                     self.setState(i,0)
                 continue
+            # negative numbers turn off, positive turn on
             toset = 1
             if t < 0:
                 toset = 0
             t = abs(t)
             self.setState(t,toset)
-            print(t)
         return
  
     # on opening of a new browser session
@@ -99,9 +106,13 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
                 returnlabel = 0
             message = {'action': 'state', 'id': pins[pin]['name'], 'state': returnlabel}
             [client.write_message(message) for client in self.connections]
-        for r in routines:
-            message = {'action': 'routine', 'name': r, 'routine': routines[r]}
+        self.sendRoutines()
+
+    def sendRoutines(self):
+        for r in self.routines:
+            message = {'action': 'routine', 'name': r, 'routine': self.routines[r]}
             [client.write_message(message) for client in self.connections]
+
  
     def on_message(self, message):
         print(message)
@@ -110,6 +121,11 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
             self.setState(msg['id'], msg['state'])
         if msg['action'] == "routine":
             self.runRoutine(msg['routine'])
+        if msg['action'] == "reloadroutines":
+            print(self.routines)
+            self.routines = loadRoutines()
+            print(self.routines)
+            self.sendRoutines()
  
     def on_close(self):
         self.connections.remove(self)
@@ -122,5 +138,5 @@ def make_app():
  
 if __name__ == "__main__":
     app = make_app()
-    app.listen(80)
+    app.listen(8080)
     tornado.ioloop.IOLoop.current().start()

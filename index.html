@@ -1,9 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
+<style>
+  .onoff-container{
+    float:left;
+    height:20vw;
+    width:35vw;
+  }
+  .circle{
+    float:left;
+    border:1px solid black;
+    border-radius: 50%;
+    text-align: center;
+    line-height:15vw; 
+    height:15vw;
+    width: 15vw;
+  }
+  .numberbox {
+	line-height:40px;
+	border-width:10px;
+	border-style:solid;
+	border-color:white;
+	height:15vw;
+	width:15vw;
+	float:left;
+  }
+</style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script>
-var ws = new WebSocket("ws://" + location.host + "/websocket");
+var protocol = 'ws';
+if (window.location.protocol == 'https:') {
+  protocol = 'wss'
+}
+var ws = new WebSocket(protocol + "://" + location.host + "/websocket");
 var states = {
   1:0,
   2:0,
@@ -17,7 +46,9 @@ var states = {
 
 // should end up with
 // 'name': '12345678', // example pattern
-var routines = {}
+var routines = {};
+var running = 0;
+var runs = 0;
 
 $(window).keydown(function (e) {
   switch(e.which) {
@@ -50,60 +81,139 @@ $(window).keydown(function (e) {
 function press(id) {
   newstate = 0;
   if(states[id] == 0) {
-  newstate = 1;
+    newstate = 1;
   } 
   ws.send(JSON.stringify({"action": "setid", "id":id, "state": newstate}));
+  checkAllOnOff();
+}
+function getRuntime(routine) {
+  return routine.match(/w/g).length;
 }
 function runRoutine(name) {
   ws.send(JSON.stringify({"action": "routine", "routine":routines[name]}));
+  checkAllOnOff();
+}
+function runCheckedRoutines() {
+  if (running == 0) {
+    return;
+  }
+  // loop through the checkboxes to get the ones marked
+  runlist=[];
+  $("input:checkbox:checked").each(function() { 
+	runlist.push($(this).val());
+  });
+  runArrayOfRoutines(runlist);
+}
+function runArrayOfRoutines(runlist) {
+  if (running == 0) {
+    return
+  }
+  runs = runs + 1;
+  console.log("runArrayOfRoutines");
+  console.log(runlist);
+  runRoutine(runlist[0]);
+  sleeptime =  getRuntime(routines[runlist[0]])*500;
+  console.log("running with settimeout of "+sleeptime);
+  setTimeout(function() {
+    //rotate the array before calling the new one
+    runlist.push(runlist.shift());
+    runArrayOfRoutines(runlist);
+  }, sleeptime);
+}
+function stopRoutines() {
+  running = 0;
+}
+function checkAllOnOff() {
+  console.log(states);
+  seton = 0;
+  setoff = 0;
+  for( let i in states) {
+    console.log(states[i]);
+    if (states[i] == 0) {
+      setoff = setoff + 1;
+    } else {
+      seton = seton + 1;
+    }
+    if (seton > 0 && setoff > 0) {
+      setHighlight("routine-Allon",0);
+      setHighlight("routine-Alloff",0);
+    }
+  }
+  if (seton == 8) {
+    setHighlight("routine-Allon",1);
+    setHighlight("routine-Alloff",0);
+  }
+  if (setoff == 8) {
+    setHighlight("routine-Alloff",1);
+    setHighlight("routine-Allon",0);
+  }
+}
+function setHighlight(mydiv,onoff) {
+  console.log("sethighlight: "+mydiv +" - "+onoff);
+  color="white";
+  if (onoff == 1) {
+    color="lightGrey";
+  }
+  $("#"+mydiv).css("background-color",color);
 }
 </script>
 </head>
 <body>
-<table id='maintable' border=1 width=100%>
-<tr height=50>
-<td align="center" onclick="press(1)" width="12.5%">1</td>
-<td align="center" onclick="press(2)" width="12.5%">2</td>
-<td align="center" onclick="press(3)" width="12.5%">3</td>
-<td align="center" onclick="press(4)" width="12.5%">4</td>
-<td align="center" onclick="press(5)" width="12.5%">5</td>
-<td align="center" onclick="press(6)" width="12.5%">6</td>
-<td align="center" onclick="press(7)" width="12.5%">7</td>
-<td align="center" onclick="press(8)" width="12.5%">8</td>
-</tr>
-<tr height=5>
-<td id=1></td>
-<td id=2></td>
-<td id=3></td>
-<td id=4></td>
-<td id=5></td>
-<td id=6></td>
-<td id=7></td>
-<td id=8></td>
+<div id="numbers-container" style="float:left;width:80%">
+	<div id='div1' align="center" class="numberbox" onclick="press(1)"><h1 style="font-size:80px">1</h1></div>
+	<div id='div2' align="center" class="numberbox" onclick="press(2)"><h1 style="font-size:80px">2</h1></div>
+	<div id='div3' align="center" class="numberbox" onclick="press(3)"><h1 style="font-size:80px">3</h1></div>
+	<div id='div4' align="center" class="numberbox" onclick="press(4)"><h1 style="font-size:80px">4</h1></div>
+	<div id='div5' align="center" class="numberbox" onclick="press(5)"><h1 style="font-size:80px">5</h1></div>
+	<div id='div6' align="center" class="numberbox" onclick="press(6)"><h1 style="font-size:80px">6</h1></div>
+	<div id='div7' align="center" class="numberbox" onclick="press(7)"><h1 style="font-size:80px">7</h1></div>
+	<div id='div8' align="center" class="numberbox" onclick="press(8)"><h1 style="font-size:80px">8</h1></div>
+	<div id='onoff-container' class="onoff-container"> 
+	<div id='routine-Allon' class='circle' onclick='stopRoutines(); runRoutine("Allon");'>All On</div>
+	<div id='routine-Alloff' class='circle' onclick='stopRoutines(); runRoutine("Alloff");'>All Off</div>
+</div>
+<br>
+<div id="routines-container" style="float:left">
+<table id='maintable' border=1 >
+<tr>
+	<td><input type='Button' value='Run Checked' onclick='running=1;runCheckedRoutines()'></td>
+        <td><input type='Button' value='Stop' onclick='stopRoutines()'></td>
+
 </tr>
 <tr>
-<td colspan=8><div id='routines'></div></td>
+	<td colspan=8>
+		<div id='routines'>
+
+		</div>
+	</td>
 </tr>
+<tr>
 </table>
+</div>
 <script>
   ws.onmessage = function(evt) {
     var messageDict = JSON.parse(evt.data);
+    console.log(messageDict);
     if( messageDict.action == "state") {
       states[messageDict.id] = messageDict.state;
       if(messageDict.state == "1") {
         $("#"+messageDict.id).css('background-color','green');
+	$("#div"+messageDict.id).css('border-color', 'green');
       } else if (messageDict.state == "0") {
         $("#"+messageDict.id).css('background-color','red');
+	$("#div"+messageDict.id).css('border-color', 'red');
       }
+      checkAllOnOff();
     } else if (messageDict.action == "routine" ) {
       //Add to list of routines
       routines[messageDict.name]=messageDict.routine;
-      //Add to page
-      newbutton = "<input type='Button' value='" + messageDict.name+"' onclick='runRoutine(\""+messageDict.name+"\")'>";
-      $("#routines").append(newbutton);    
+      //Add to page, if doesn't exist
+      if($('#routine-'+messageDict.name).length < 1) {
+        newbutton = "<div id='routine-"+messageDict.name+"'><input type='checkbox' id='" + messageDict.name+"' value='" + messageDict.name + "'><input type='Button' value='" + messageDict.name+"' onclick='runRoutine(\""+messageDict.name+"\")'></div>";
+        $("#routines").append(newbutton);    
+      }
       
     }
-    console.log(messageDict)
     // messageDict attributes are accessable like messageDict.user, messageDict.id, etc
   };
   </script>
