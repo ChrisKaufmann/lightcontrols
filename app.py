@@ -1,4 +1,5 @@
 import tornado.ioloop
+import asyncio
 import tornado.web
 import tornado.websocket
 import RPi.GPIO as GPIO
@@ -6,7 +7,11 @@ import json
 import os
 import time
 import random
+from threading import Thread
+from tornado.platform.asyncio import AnyThreadEventLoopPolicy
+import queue
 
+asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
 GPIO.setmode(GPIO.BOARD)
 
 routinesPath = "routines"
@@ -44,24 +49,61 @@ def loadRoutines():
         newline = ""
         with open(routinesPath+"/"+filename) as f:
             for line in f.readlines():
+                line = line.replace("w", " w ");
+                line = line.replace("r", " r ");
                 for c in line:
                     if c.isdigit() == True or c == " " or c == "w" or c == "-" or c == "r":
                         newline = newline+c
         if len(newline) < 1:
           continue
-        r[filename.capitalize()] = newline
+        r[filename.capitalize()] = {}
+        r[filename.capitalize()]['routine'] = newline
+        r[filename.capitalize()]['state'] = 0
     print("Loading Routines - finished")
     return r
-routines = loadRoutines()
+
+class Worker(Thread):
+  def __init__(self, q, *args, **kwargs):
+    self.q = q
+    super().__init__(*args, **kwargs)
+  def run(self):
+    while True:
+      try:
+        work = self.q.get()
+      except queue.Empty:
+        continue
+      # we re-enqueue because it's expected to run in a loop, and because this is synchronous here
+      # if the queue is reset before or after it gets here it shouldn't matter
+      # but only of it is not allon or alloff because those are steady states and don't need to loop
+      if work['routine'] != 'Allon' and work['routine'] != 'Alloff':
+        q.put_nowait(work)
+      # then we run the routine
+      work['web'].runRoutine(work['routine'])
+      time.sleep(.5)
+      self.q.task_done()
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("index.html")
+class includeJsHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("include.js")
+class reconnectingwebsocketHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("reconnecting-websocket.min.js")
  
 class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     connections = set()
+    def initialize(self, q, routines):
+        print(q)
+        print(routines)
+        self.q = q
+        self.routines = routines
 
-    routines = routines # copy from the global
+    def sendMessage(self, message):
+        for client in self.connections:
+            client.write_message(message)
+
     def setState(self, id, state):
         state = int(state)
         id = int(id)
@@ -71,11 +113,11 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
             GPIO.output(pinmap[id], GPIO.LOW)
         pins[pinmap[id]][state] = GPIO.input(pin)
         message = {'action': 'state', 'id': id, 'state': state}
-        [client.write_message(message) for client in self.connections]
+        self.sendMessage(message)
 
-    def runRoutine(self,routine):
-        print("Running: "+routine)
-        routine = routine.replace("w", " w ")
+    def runRoutine(self,name):
+        print("Running: "+name)
+        routine = self.routines[name]['routine']
         tokens = routine.split()
         for t in tokens:
             if t == "w":
@@ -110,9 +152,8 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
 
     def sendRoutines(self):
         for r in self.routines:
-            message = {'action': 'routine', 'name': r, 'routine': self.routines[r]}
+            message = {'action': 'routine', 'name': r}
             [client.write_message(message) for client in self.connections]
-
  
     def on_message(self, message):
         print(message)
@@ -120,23 +161,35 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
         if msg['action'] == "setid":
             self.setState(msg['id'], msg['state'])
         if msg['action'] == "routine":
-            self.runRoutine(msg['routine'])
-        if msg['action'] == "reloadroutines":
-            print(self.routines)
-            self.routines = loadRoutines()
-            print(self.routines)
-            self.sendRoutines()
- 
+            self.q.put_nowait({'routine':msg['routine'],'web':self})
+        if msg['action'] == "stop":
+            self.clear_queue(q)
+
+    def clear_queue(self,q):
+        while not self.q.empty():
+            self.q.get()
     def on_close(self):
         self.connections.remove(self)
  
-def make_app():
+def make_app(q,routines):
     return tornado.web.Application([
         (r"/", MainHandler),
-        (r"/websocket", SimpleWebSocket)
+        (r"/include.js", includeJsHandler),
+        (r"/reconnecting-websocket.min.js", reconnectingwebsocketHandler),
+        (r"/websocket", SimpleWebSocket, dict(q=q,routines=routines))
     ])
- 
-if __name__ == "__main__":
-    app = make_app()
-    app.listen(8080)
-    tornado.ioloop.IOLoop.current().start()
+
+def start_tornado(q, routines):
+    app = make_app(q, routines)
+    server = tornado.httpserver.HTTPServer(app)
+    server.listen(8080)
+    tornado.ioloop.IOLoop.instance().start()
+
+q = queue.Queue()
+Worker(q).start()
+
+t = Thread(target=start_tornado, args=(q, loadRoutines()))
+t.daemon = True
+t.start()
+t.join()
+
