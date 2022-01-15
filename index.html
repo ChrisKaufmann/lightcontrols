@@ -21,7 +21,7 @@
     border:1px solid black;
     border-radius: 50%;
     text-align: center;
-    line-height:15vw; 
+    line-height:10vw; 
     height:10vw;
     width: 10vw;
   }
@@ -44,22 +44,19 @@
 </head>
 <body>
 <div id="numbers-container" class="rel" style="position:relative;width:80vw;height:35vw;">
-    <div id='div1' align="center" class="numberbox" onclick="press(1)"><h1 style="font-size:80px">1</h1></div>
-    <div id='div2' align="center" class="numberbox" onclick="press(2)"><h1 style="font-size:80px">2</h1></div>
-    <div id='div3' align="center" class="numberbox" onclick="press(3)"><h1 style="font-size:80px">3</h1></div>
-    <div id='div4' align="center" class="numberbox" onclick="press(4)"><h1 style="font-size:80px">4</h1></div>
-    <div id='div5' align="center" class="numberbox" onclick="press(5)"><h1 style="font-size:80px">5</h1></div>
-    <div id='div6' align="center" class="numberbox" onclick="press(6)"><h1 style="font-size:80px">6</h1></div>
-    <div id='div7' align="center" class="numberbox" onclick="press(7)"><h1 style="font-size:80px">7</h1></div>
-    <div id='div8' align="center" class="numberbox" onclick="press(8)"><h1 style="font-size:80px">8</h1></div>
+    <div id='div1' align="center" class="numberbox" onclick="press(1);"><h1 style="font-size:80px">1</h1></div>
+    <div id='div2' align="center" class="numberbox" onclick="press(2);"><h1 style="font-size:80px">2</h1></div>
+    <div id='div3' align="center" class="numberbox" onclick="press(3);"><h1 style="font-size:80px">3</h1></div>
+    <div id='div4' align="center" class="numberbox" onclick="press(4);"><h1 style="font-size:80px">4</h1></div>
+    <div id='div5' align="center" class="numberbox" onclick="press(5);"><h1 style="font-size:80px">5</h1></div>
+    <div id='div6' align="center" class="numberbox" onclick="press(6);"><h1 style="font-size:80px">6</h1></div>
+    <div id='div7' align="center" class="numberbox" onclick="press(7);"><h1 style="font-size:80px">7</h1></div>
+    <div id='div8' align="center" class="numberbox" onclick="press(8);"><h1 style="font-size:80px">8</h1></div>
 </div>
 
-<div id='onoff-container' class="onoff-container" style="width:80vw;height:18vw;"> 
-    <div id='routine-Allon' class='circle' onclick='runRoutine(2)'>All On</div>
-    <div id='routine-Alloff' class='circle' onclick='runRoutine("Alloff");'>All Off</div>
-</div>
+<div id="routines-container" class="rel" style="position:relative;width:80vw;height:16vw"></div>
 
-<div id="routines-container" class="rel" style="position:relative;width:80vw;height:35vw"></div>
+<div id="onoff-container" class="onoff-container" style="width:80vw;height:18vw;"></div>
 
 </body>
 </html>

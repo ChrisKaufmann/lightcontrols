@@ -44,9 +44,6 @@ $(window).keydown(function (e) {
   }
 });
 
-function stopRoutines() {
-  ws.send(JSON.stringify({"action": "stop"}));
-}
 function checkAllOnOff() {
   console.log(states);
   seton = 0;
@@ -80,7 +77,6 @@ function setHighlight(mydiv,onoff) {
   $("#"+mydiv).css("background-color",color);
 }
 
-
 function press(id) {
   newstate = 0;
   if(states[id] == 0) {
@@ -91,45 +87,64 @@ function press(id) {
 }
 function runRoutine(name) {
   console.log("runRoutine: "+name);
+  if(name == "Allon" || name == "Alloff") {
+    ws.send(JSON.stringify({"action": "stop"}));
+  }
+
   ws.send(JSON.stringify({"action": "routine", "routine":name}));
   checkAllOnOff();
 }
-    ws.onmessage = function(evt) {
-        var messageDict = JSON.parse(evt.data);
-        action = messageDict.action;
-        console.log(messageDict);
-        if( action == "state") {
-            id = messageDict.id;
-            state = messageDict.state;
-            states[id] = state;
-            if(state == "1") {
-                $("#"+id).css('background-color','green');
-                $("#div"+id).css('border-color', 'green');
-            } else if (state == "0") {
-                $("#"+id).css('background-color','red');
-                $("#div"+id).css('border-color', 'red');
+function handleRoutine(name,state) {
+        divid = 'routine-'+name;
+        //Add to list of routines or set the state either way
+        routines[name]=state;
+        //Add to page, if doesn't exist
+        if($('#'+divid).length < 1) {
+            containerdiv = '#routines-container';
+            if(name == "Allon" || name == "Alloff") {
+                containerdiv = '#onoff-container';
             }
-            checkAllOnOff();
-        } else if (action == "routine" ) {
-            name = messageDict.name;
-            state = messageDict.state;
-            //Add to list of routines
-            routines[name]=state;
-            //Add to page, if doesn't exist
-            if($('#routine-'+name).length < 1) {
-                newcircle = "<div id='routine-"+name+"' class='smallcircle' onclick='runRoutine(\""+name+"\")'>"+name+"</div>";
-                $("#routines-container").append(newcircle);
-            }
-        } else if (action == "routineState") {
-            name = messageDict.name;
-            state = messageDict.state;
-            divname = '#routine-'+name;
-            color = 'black';
-            if (state == 1) {
-                color = 'green';
-            }
-            $(divname).css('border-color', color);
+            newcircle = "<div id='"+divid+"' class='smallcircle' onclick='runRoutine(\""+name+"\")'>"+name+"</div>";
+            $(containerdiv).append(newcircle);
         }
-        // messageDict attributes are accessable like messageDict.user, messageDict.id, etc
-    };
+		if (state ==1 ) {
+			$("#"+divid).css('border-color', 'green');
+            $("#"+divid).css('border-width','10px');
+		} else {
+			$("#"+divid).css('border-color', 'black');
+            $("#"+divid).css('border-width','1px');
+		}
+}
+ws.onmessage = function(evt) {
+    var messageDict = JSON.parse(evt.data);
+    action = messageDict.action;
+    console.log(messageDict);
+    // messageDict attributes are accessable like messageDict.user, messageDict.id, etc
+    if( action == "state") {
+        id = messageDict.id;
+        state = messageDict.state;
+        states[id] = state;
+        if(state == "1") {
+            $("#"+id).css('background-color','green');
+            $("#div"+id).css('border-color', 'green');
+        } else if (state == "0") {
+            $("#"+id).css('background-color','red');
+            $("#div"+id).css('border-color', 'red');
+        }
+        checkAllOnOff();
+    } else if (action == "routine" ) {
+        name = messageDict.name;
+        state = messageDict.state;
+        handleRoutine(name,state);
+    } else if (action == "routineState") {
+        name = messageDict.name;
+        state = messageDict.state;
+        divname = '#routine-'+name;
+        color = 'black';
+        if (state == 1) {
+            color = 'green';
+        }
+        $(divname).css('border-color', color);
+    }
+};
 

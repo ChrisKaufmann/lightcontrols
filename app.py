@@ -102,15 +102,24 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
 
     def sendMessage(self, message):
         for client in self.connections:
-            client.write_message(message)
+            try:
+                client.write_message(message)
+            except:
+                print("Error sending to all clients")
 
     def setState(self, id, state):
         state = int(state)
         id = int(id)
         if state == 1:
-            GPIO.output(pinmap[id], GPIO.HIGH)
+            try:
+                GPIO.output(pinmap[id], GPIO.HIGH)
+            except:
+                print("Error setting pin:" +id)
         if state == 0:
-            GPIO.output(pinmap[id], GPIO.LOW)
+            try:
+                GPIO.output(pinmap[id], GPIO.LOW)
+            except:
+                print("Error setting pin:" +id)
         pins[pinmap[id]][state] = GPIO.input(pin)
         message = {'action': 'state', 'id': id, 'state': state}
         self.sendMessage(message)
@@ -119,6 +128,8 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
         print("Running: "+name)
         routine = self.routines[name]['routine']
         tokens = routine.split()
+        self.routines[name]['state']=1
+        self.sendRoutines()
         for t in tokens:
             if t == "w":
                 time.sleep(.5)
@@ -136,23 +147,28 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
                 toset = 0
             t = abs(t)
             self.setState(t,toset)
+        self.routines[name]['state']=0
+        self.sendRoutines()
         return
  
     # on opening of a new browser session
     def open(self):
         self.connections.add(self)
         for pin in pins:
-            pins[pin]['state'] = GPIO.input(pin)
+            try:
+                pins[pin]['state'] = GPIO.input(pin)
+            except:
+                print("Error reading pin: "+pin)
             returnlabel = 1
             if pins[pin]['state'] == GPIO.LOW:
                 returnlabel = 0
             message = {'action': 'state', 'id': pins[pin]['name'], 'state': returnlabel}
-            [client.write_message(message) for client in self.connections]
+            self.sendMessage(message)
         self.sendRoutines()
 
     def sendRoutines(self):
         for r in self.routines:
-            message = {'action': 'routine', 'name': r}
+            message = {'action': 'routine', 'name': r, 'state':self.routines[r]['state']}
             [client.write_message(message) for client in self.connections]
  
     def on_message(self, message):
