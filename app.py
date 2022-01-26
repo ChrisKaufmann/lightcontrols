@@ -169,7 +169,11 @@ class SimpleWebSocket(tornado.websocket.WebSocketHandler):
     def sendRoutines(self):
         for r in self.routines:
             message = {'action': 'routine', 'name': r, 'state':self.routines[r]['state']}
-            [client.write_message(message) for client in self.connections]
+            for client in self.connections:
+                try:
+                    client.write_message(message)
+                except:
+                    print("Error writing to client")
  
     def on_message(self, message):
         print(message)
